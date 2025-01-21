@@ -1,0 +1,54 @@
+name: CI/CD - Build, Test, and Deploy to Google Cloud
+
+on:
+  push:
+    branches:
+      - master
+  pull_request:
+    branches:
+      - master
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v2
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v3
+        with:
+          node-version: '20'
+
+      - name: Install dependencies
+        run: npm install
+
+      - name: Run tests
+        run: npm test -- --maxWorkers=2
+
+      - name: Build React app
+        run: npm run build
+
+  deploy:
+    runs-on: ubuntu-latest
+    needs: build
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v2
+
+      - name: Set up Google Cloud Authentication
+        uses: google-github-actions/auth@v0
+        with:
+          credentials_json: ${{ secrets.GCP_SA_KEY }}
+
+      - name: Build Docker image
+        run: |
+          docker build -t gcr.io/$GCP_PROJECT_ID/your-app-image .
+          docker push gcr.io/$GCP_PROJECT_ID/your-app-image
+
+      - name: Deploy to Google Cloud Run
+        uses: google-github-actions/deploy-cloudrun@v0
+        with:
+          service: your-service-name
+          image: gcr.io/$GCP_PROJECT_ID/your-app-image
+          region: us-central1
